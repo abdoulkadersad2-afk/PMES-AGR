@@ -1,0 +1,217 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "App user/agent account",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "username": { "type": "string" },
+        "nom": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "AGENT", "TRESORIER", "MAIRE"] },
+        "zone": { "type": "string" },
+        "password": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" },
+        "telephone": { "type": "string" }
+      },
+      "required": ["id", "username", "nom", "role", "zone"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Member/Adherent profile",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nom": { "type": "string" },
+        "telephone": { "type": "string" },
+        "pin": { "type": "string" },
+        "livret": { "type": "string" },
+        "zone": { "type": "string" },
+        "corporationId": { "type": "string" },
+        "corporationNom": { "type": "string" },
+        "corporationEmoji": { "type": "string" },
+        "solde": { "type": "number" },
+        "status": { "type": "string", "enum": ["valide", "en_attente", "rejete", "suspendu"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "photo": { "type": "string" },
+        "activite": { "type": "string" },
+        "notes": { "type": "string" },
+        "date_naissance": { "type": "string" },
+        "lieu_naissance": { "type": "string" },
+        "objectif_montant": { "type": "number" },
+        "objectif_date": { "type": "string", "format": "date" },
+        "objectif_label": { "type": "string" }
+      },
+      "required": ["id", "nom", "telephone", "pin", "livret", "zone", "solde", "status", "created_at"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Financial transaction (depot, retrait, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "member_id": { "type": "string" },
+        "member_nom": { "type": "string" },
+        "member_livret": { "type": "string" },
+        "type": { "type": "string", "enum": ["depot", "retrait", "financement", "remboursement", "frais", "adhesion", "investissement"] },
+        "montant": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "agent": { "type": "string" },
+        "zone": { "type": "string" },
+        "validated": { "type": "boolean" },
+        "solde_apres": { "type": "number" },
+        "solde_avant": { "type": "number" },
+        "reference": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "uid", "member_id", "type", "montant", "date", "agent", "zone", "validated"]
+    },
+    "DemandeRetrait": {
+      "title": "DemandeRetrait",
+      "description": "Withdrawal request",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "member_id": { "type": "string" },
+        "montant": { "type": "number" },
+        "motif": { "type": "string" },
+        "status": { "type": "string", "enum": ["en_attente", "valide", "rejete", "decaissed"] },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["retrait"] }
+      },
+      "required": ["id", "uid", "member_id", "montant", "motif", "status", "date", "type"]
+    },
+    "DemandeFinancement": {
+      "title": "DemandeFinancement",
+      "description": "Financing request (Mourabaha, Moudaraba, Qard al-Hassane)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "member_id": { "type": "string" },
+        "montant": { "type": "number" },
+        "duree_mois": { "type": "number" },
+        "motif": { "type": "string" },
+        "status": { "type": "string", "enum": ["en_attente", "valide", "rejete", "decaissed"] },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["financement"] },
+        "financement_type": { "type": "string", "enum": ["mourabaha", "moudaraba", "qard_al_hassane"] },
+        "montant_total": { "type": "number" },
+        "montant_rembourse": { "type": "number" },
+        "decaissed_from_caisse": { "type": "boolean" }
+      },
+      "required": ["id", "uid", "member_id", "montant", "status", "date", "type", "financement_type"]
+    },
+    "Corporation": {
+      "title": "Corporation",
+      "description": "Business corporation with adhesion fees",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nom": { "type": "string" },
+        "emoji": { "type": "string" },
+        "categorie": { "type": "string" },
+        "membres": { "type": "number" },
+        "frais_adhesion": { "type": "number" }
+      },
+      "required": ["id", "nom", "emoji", "categorie", "membres", "frais_adhesion"]
+    },
+    "CaisseMouvement": {
+      "title": "CaisseMouvement",
+      "description": "Movement in the special financing treasury",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["adhesion", "remboursement", "decaissement", "dotation_initiale", "cotisation_sante", "assistance_sociale"] },
+        "montant": { "type": "number" },
+        "member_id": { "type": "string" },
+        "member_nom": { "type": "string" },
+        "corporation_nom": { "type": "string" },
+        "description": { "type": "string" },
+        "agent": { "type": "string" }
+      },
+      "required": ["id", "date", "type", "montant", "description", "agent"]
+    },
+    "ZoneItem": {
+      "title": "ZoneItem",
+      "description": "Geographic zone",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "nom": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["id", "nom", "description"]
+    },
+    "InvestissementProjet": {
+      "title": "InvestissementProjet",
+      "description": "Collective investment project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "titre": { "type": "string" },
+        "description": { "type": "string" },
+        "montant_cible": { "type": "number" },
+        "montant_actuel": { "type": "number" },
+        "participation_min": { "type": "number" },
+        "date_limite": { "type": "string", "format": "date" },
+        "date_echeance": { "type": "string", "format": "date" },
+        "profit_estime_pct": { "type": "number" },
+        "status": { "type": "string", "enum": ["ouvert", "ferme", "cloture", "annule"] },
+        "created_at": { "type": "string", "format": "date-time" },
+        "createur": { "type": "string" },
+        "nb_participants": { "type": "number" }
+      },
+      "required": ["id", "titre", "montant_cible", "status", "created_at"]
+    },
+    "InvestissementParticipation": {
+      "title": "InvestissementParticipation",
+      "description": "Member participation in a project",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projet_id": { "type": "string" },
+        "member_id": { "type": "string" },
+        "member_nom": { "type": "string" },
+        "member_livret": { "type": "string" },
+        "montant": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["actif", "rembourse"] }
+      },
+      "required": ["id", "projet_id", "member_id", "montant", "date", "status"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System audit log entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "action": { "type": "string" },
+        "acteur": { "type": "string" },
+        "role": { "type": "string" },
+        "details": { "type": "string" },
+        "cible": { "type": "string" },
+        "categorie": { "type": "string", "enum": ["critique", "info", "securite"] }
+      },
+      "required": ["id", "uid", "date", "action", "acteur", "role", "details", "categorie"]
+    }
+  },
+  "firestore": {
+    "users": { "schema": "User", "description": "Collection of system users" },
+    "members": { "schema": "Member", "description": "Collection of members" },
+    "transactions": { "schema": "Transaction", "description": "Collection of transactions" },
+    "retraits": { "schema": "DemandeRetrait", "description": "Collection of withdrawal requests" },
+    "financements": { "schema": "DemandeFinancement", "description": "Collection of financing requests" },
+    "corporations": { "schema": "Corporation", "description": "Collection of corporations" },
+    "caisse_mouvements": { "schema": "CaisseMouvement", "description": "Collection of financing treasury movements" },
+    "zones": { "schema": "ZoneItem", "description": "Collection of zones" },
+    "investissements": { "schema": "InvestissementProjet", "description": "Collection of investment projects" },
+    "participations": { "schema": "InvestissementParticipation", "description": "Collection of investment participations" },
+    "audit_logs": { "schema": "AuditLog", "description": "Collection of system audit logs" }
+  }
+}

@@ -1,0 +1,203 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Default Deny - Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- GLOBAL HELPERS ---
+    function isSignedIn() { return request.auth != null; }
+    function isEmailVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // Auth-based checks
+    function isBootstrapAdmin() {
+      return isEmailVerified() && request.auth.token.email == 'abdoulkadersad2@gmail.com';
+    }
+
+    // User Role Lookups
+    function hasUserDoc() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function hasRole(role) {
+      return isSignedIn() && (isBootstrapAdmin() || (hasUserDoc() && getUserData().role == role));
+    }
+    function isAdmin() { return hasRole('ADMIN'); }
+    function isTresorier() { return hasRole('TRESORIER'); }
+    function isMaire() { return hasRole('MAIRE'); }
+    function isAgent() { return hasRole('AGENT'); }
+    function isStaff() { return isAdmin() || isTresorier() || isAgent(); }
+
+    // --- ENTITY VALIDATION BLUEPRINTS ---
+
+    function isValidSyncAt(data) {
+      return !('sync_at' in data) || data.sync_at == request.time;
+    }
+
+    function isValidUser(data) {
+      let required = ['id', 'username', 'nom', 'role', 'zone'];
+      let allowed = ['id', 'username', 'nom', 'role', 'zone', 'password', 'created_at', 'telephone', 'sync_at'];
+      return data.keys().hasAll(required) && data.keys().hasOnly(allowed)
+        && data.id is string && data.id.size() <= 128
+        && data.nom is string && data.nom.size() <= 128
+        && data.role in ['ADMIN', 'AGENT', 'TRESORIER', 'MAIRE']
+        && isValidSyncAt(data);
+    }
+
+    function isValidMember(data) {
+      let required = ['id', 'nom', 'telephone', 'pin', 'livret', 'zone', 'solde', 'status', 'created_at'];
+      let allowed = [
+        'id', 'nom', 'telephone', 'pin', 'livret', 'zone', 'solde', 'status', 'created_at',
+        'corporationId', 'corporationNom', 'corporationEmoji', 'photo', 'activite', 'notes',
+        'objectif_montant', 'objectif_date', 'objectif_label', 'date_naissance', 'lieu_naissance', 'sync_at'
+      ];
+      return data.keys().hasAll(required) && data.keys().hasOnly(allowed)
+        && data.id is string && data.id.size() <= 128
+        && data.nom is string && data.nom.size() <= 128
+        && data.telephone is string && data.telephone.size() <= 20
+        && data.solde is number
+        && data.status in ['valide', 'en_attente', 'rejete', 'suspendu']
+        && isValidSyncAt(data);
+    }
+
+    function isValidTransaction(data) {
+      let required = ['id', 'member_id', 'type', 'montant', 'date', 'agent', 'zone', 'validated'];
+      let allowed = [
+        'id', 'uid', 'member_id', 'type', 'montant', 'date', 'agent', 'zone', 'validated',
+        'member_nom', 'member_livret', 'solde_avant', 'solde_apres', 'reference', 'description', 'sync_at'
+      ];
+      return data.keys().hasAll(required) && data.keys().hasOnly(allowed)
+        && data.id is string && data.id.size() <= 128
+        && data.member_id is string && data.member_id.size() <= 128
+        && data.type in ['depot', 'retrait', 'financement', 'remboursement', 'frais', 'adhesion', 'investissement']
+        && data.montant is number && data.montant >= 0
+        && isValidSyncAt(data)
+        && (!('uid' in data) || data.uid == request.auth.uid || isAdmin());
+    }
+
+    function isValidAuditLog(data) {
+      let required = ['id', 'date', 'action', 'acteur', 'role', 'details', 'categorie'];
+      let allowed = ['id', 'uid', 'date', 'action', 'acteur', 'role', 'details', 'categorie', 'cible', 'sync_at'];
+      return data.keys().hasAll(required) && data.keys().hasOnly(allowed)
+        && data.id is string && data.id.size() <= 128
+        && data.categorie in ['critique', 'info', 'securite']
+        && isValidSyncAt(data)
+        && (!('uid' in data) || data.uid == request.auth.uid || isAdmin());
+    }
+
+    function isValidRetrait(data) {
+      let required = ['id', 'member_id', 'montant', 'motif', 'status', 'date', 'type'];
+      return data.keys().hasAll(required)
+        && data.type == 'retrait'
+        && data.status in ['en_attente', 'valide', 'rejete', 'decaissed']
+        && isValidSyncAt(data)
+        && (!('uid' in data) || data.uid == request.auth.uid || isAdmin());
+    }
+
+    function isValidFinancement(data) {
+      let required = ['id', 'member_id', 'montant', 'status', 'date', 'type', 'financement_type'];
+      return data.keys().hasAll(required)
+        && data.type == 'financement'
+        && data.status in ['en_attente', 'valide', 'rejete', 'decaissed']
+        && isValidSyncAt(data)
+        && (!('uid' in data) || data.uid == request.auth.uid || isAdmin());
+    }
+
+    // --- COLLECTIONS ---
+
+    // 1. Users
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || isBootstrapAdmin()) && isValidId(userId) && isValidUser(incoming());
+      allow update: if (isAdmin() || isBootstrapAdmin() || (isSignedIn() && request.auth.uid == userId))
+                    && isValidUser(incoming())
+                    && ((isAdmin() || isBootstrapAdmin()) || incoming().role == existing().role);
+    }
+
+    // 2. Members
+    match /members/{memberId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff() && isValidId(memberId) && isValidMember(incoming());
+      allow update: if (isStaff() || (isSignedIn() && request.auth.uid == memberId))
+                    && isValidMember(incoming())
+                    && (isAdmin() || isTresorier() || incoming().solde == existing().solde);
+      allow delete: if isAdmin();
+    }
+
+    // 3. Transactions
+    match /transactions/{txId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff() && isValidId(txId) && isValidTransaction(incoming())
+                    && exists(/databases/$(database)/documents/members/$(incoming().member_id));
+      allow update, delete: if isAdmin();
+    }
+
+    // 4. Audit Logs
+    match /audit_logs/{logId} {
+      allow read: if isSignedIn() && (isAdmin() || isMaire() || isTresorier());
+      allow create: if isStaff() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if isAdmin();
+    }
+
+    // 5. Retraits
+    match /retraits/{retId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff() && isValidId(retId) && isValidRetrait(incoming());
+      allow update: if (isAdmin() || isTresorier()) && isValidRetrait(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 6. Financements
+    match /financements/{finId} {
+      allow read: if isSignedIn();
+      allow create: if isStaff() && isValidId(finId) && isValidFinancement(incoming());
+      allow update: if (isAdmin() || isTresorier()) && isValidFinancement(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 7. Corporations
+    match /corporations/{corpoId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 8. Caisse Mouvements
+    match /caisse_mouvements/{movId} {
+      allow read: if isSignedIn();
+      allow create: if (isAdmin() || isTresorier()) && isValidId(movId);
+      allow update, delete: if isAdmin();
+    }
+
+    // 9. Zones
+    match /zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // 10. Investissements
+    match /investissements/{invId} {
+      allow read: if isSignedIn();
+      allow create, update: if (isAdmin() || isTresorier()) && isValidId(invId);
+      allow delete: if isAdmin();
+    }
+
+    // 11. Participations
+    match /participations/{partId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(partId);
+      allow update: if (isAdmin() || isTresorier());
+      allow delete: if isAdmin();
+    }
+
+    // 12. Public Connection Check
+    match /test/{docId} {
+      allow read: if docId in ['ping', 'connection'];
+    }
+  }
+}

@@ -1,0 +1,26 @@
+rules_version = '2';
+
+// Règles de sécurité Firebase Storage pour PMES-AGR Dosso (bucket: flawless-form-7wpgt.firebasestorage.app)
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Refus par défaut
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Photos d'identité des adhérents
+    match /members/{memberId}/{fileName} {
+      // Lecture autorisée pour les utilisateurs authentifiés (ou passer à true si cartes publiques)
+      allow read: if request.auth != null;
+
+      // Upload limité aux images <= 2 Mo par un utilisateur authentifié
+      allow create, update: if request.auth != null
+                            && memberId.matches('^[a-zA-Z0-9_\\-]+$')
+                            && fileName.matches('^avatar_[0-9]+\\.(jpg|jpeg|png|webp)$')
+                            && request.resource.size < 2 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+
+      allow delete: if request.auth != null;
+    }
+  }
+}

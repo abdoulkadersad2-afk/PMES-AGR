@@ -1,0 +1,6 @@
+{
+  "name": "PMES-AGR Dosso - Micro-Finance PWA",
+  "description": "Application PWA installable et offline-first de micro-finance professionnelle pour la région de Dosso (Niger) : Espace Membre (livrets, épargne, retraits, financements AGR, reçus digitaux) et Espace Admin (collecte de terrain, trésorerie, corporations, rôles et synchronisation Supabase).",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
